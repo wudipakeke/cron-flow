@@ -1,0 +1,20 @@
+name: Deploy CronFlow
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & Deploy
+        run: |
+          echo "=== Building & restarting CronFlow ==="
+          docker compose build
+          docker compose up -d
+          docker image prune -f
+          echo "=== Deploy complete ==="

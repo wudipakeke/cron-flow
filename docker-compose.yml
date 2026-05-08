@@ -1,0 +1,15 @@
+services:
+  cronflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: cronflow
+    restart: unless-stopped
+    ports:
+      - "4001:4001"
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root123
+      DB_NAME: mars
