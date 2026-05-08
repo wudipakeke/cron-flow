@@ -9,6 +9,10 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
+      - name: Configure git to use SSH (HTTPS blocked by firewall)
+        run: |
+          git config --global url."git@github.com:".insteadOf "https://github.com/"
+
       - uses: actions/checkout@v4
 
       - name: Build & Deploy
