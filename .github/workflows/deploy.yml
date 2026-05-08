@@ -18,6 +18,7 @@ jobs:
       - name: Build & Deploy
         run: |
           echo "=== Building & restarting CronFlow ==="
+          docker compose down --remove-orphans 2>/dev/null || true
           docker compose build
           docker compose up -d
 
