@@ -20,5 +20,22 @@ jobs:
           echo "=== Building & restarting CronFlow ==="
           docker compose build
           docker compose up -d
+
+      - name: Health Check
+        run: |
+          echo "=== Health check ==="
+          for i in $(seq 1 12); do
+            if curl -sf http://localhost:4001/ > /dev/null 2>&1; then
+              echo "CronFlow OK"
+              exit 0
+            fi
+            echo "Attempt $i/12: not ready yet..."
+            sleep 5
+          done
+          echo "FAILED: CronFlow did not respond"
+          exit 1
+
+      - name: Cleanup
+        run: |
           docker image prune -f
           echo "=== Deploy complete ==="
