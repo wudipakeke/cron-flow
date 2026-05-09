@@ -80,7 +80,8 @@ jobs:
 
           # 飞书签名验证
           TIMESTAMP=$(date +%s)
-          SIGN=$(echo -ne "${TIMESTAMP}\n${FEISHU_WEBHOOK_SECRET}" | openssl dgst -sha256 -hmac "${FEISHU_WEBHOOK_SECRET}" -binary | base64 -w 0)
+          KEY=$(printf '%s\n%s' "${TIMESTAMP}" "${FEISHU_WEBHOOK_SECRET}")
+          SIGN=$(openssl dgst -sha256 -hmac "${KEY}" -binary < /dev/null | base64 -w 0)
 
           jq -n \
             --arg timestamp "$TIMESTAMP" \
