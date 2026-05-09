@@ -103,6 +103,7 @@ jobs:
           echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
       - name: Send Feishu notification
+        if: needs.deploy.result != 'skipped'
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
@@ -111,12 +112,9 @@ jobs:
 
           RESULT="${{ steps.summary.outputs.result }}"
           COMMIT="${{ steps.summary.outputs.commit }}"
-          CHANGED="${{ steps.summary.outputs.changed }}"
 
           if [ "$RESULT" = "success" ]; then
             COLOR="green"; STATUS_TEXT="✅ 部署成功"
-          elif [ "$RESULT" = "skipped" ] || [ "$CHANGED" = "false" ]; then
-            COLOR="blue"; STATUS_TEXT="⏭️ 版本未变更，跳过部署"
           else
             COLOR="red"; STATUS_TEXT="❌ 部署失败"
           fi
