@@ -10,7 +10,44 @@ env:
   CLUSTER_NAME: mars-cluster
 
 jobs:
+  # ─── Job 1: 检测版本变更（仅 package.json version 变化触发发版） ───
+  detect-version-changes:
+    runs-on: self-hosted
+    outputs:
+      changed: ${{ steps.version.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git to use SSH (HTTPS blocked by firewall)
+        run: |
+          git config --global url."git@github.com:".insteadOf "https://github.com/"
+
+      - name: Detect version changes
+        id: version
+        run: |
+          BASE_SHA="${{ github.event.before }}"
+          if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          OLD_VER=$(git show "$BASE_SHA:package.json" 2>/dev/null | jq -r '.version')
+          NEW_VER=$(jq -r '.version' package.json 2>/dev/null)
+          if [ "$OLD_VER" != "$NEW_VER" ] && [ -n "$NEW_VER" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Version: $OLD_VER → $NEW_VER"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged: $NEW_VER"
+          fi
+
+  # ─── Job 2: 发版（版本变更或手动触发） ───
   deploy:
+    needs: detect-version-changes
+    if: |
+      needs.detect-version-changes.outputs.changed == 'true' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: self-hosted
     steps:
       - name: Configure git to use SSH (HTTPS blocked by firewall)
@@ -47,8 +84,9 @@ jobs:
           echo "FAILED: CronFlow did not respond"
           exit 1
 
+  # ─── Job 3: 发版总结 + 飞书通知 ───
   release-summary:
-    needs: deploy
+    needs: [detect-version-changes, deploy]
     if: always()
     runs-on: self-hosted
     steps:
@@ -61,6 +99,8 @@ jobs:
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
           RESULT="${{ needs.deploy.result }}"
           echo "result=$RESULT" >> $GITHUB_OUTPUT
+          CHANGED="${{ needs.detect-version-changes.outputs.changed }}"
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
       - name: Send Feishu notification
         env:
@@ -71,9 +111,12 @@ jobs:
 
           RESULT="${{ steps.summary.outputs.result }}"
           COMMIT="${{ steps.summary.outputs.commit }}"
+          CHANGED="${{ steps.summary.outputs.changed }}"
 
           if [ "$RESULT" = "success" ]; then
             COLOR="green"; STATUS_TEXT="✅ 部署成功"
+          elif [ "$RESULT" = "skipped" ] || [ "$CHANGED" = "false" ]; then
+            COLOR="blue"; STATUS_TEXT="⏭️ 版本未变更，跳过部署"
           else
             COLOR="red"; STATUS_TEXT="❌ 部署失败"
           fi

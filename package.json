@@ -10,6 +10,10 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
+
+    "version:server:patch": "pnpm version patch --no-git-tag-version",
+    "version:server:minor": "pnpm version minor --no-git-tag-version",
+    "version:server:major": "pnpm version major --no-git-tag-version",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
