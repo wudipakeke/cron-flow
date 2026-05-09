@@ -1,9 +1,13 @@
-name: Deploy CronFlow
+name: Deploy CronFlow to K3s
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
+env:
+  NAMESPACE: mars-system
+  CLUSTER_NAME: mars-cluster
 
 jobs:
   deploy:
@@ -15,16 +19,22 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Build & Deploy
+      - name: Build CronFlow image
         run: |
-          echo "=== Building & restarting CronFlow ==="
-          docker compose down --remove-orphans 2>/dev/null || true
-          docker compose build
-          docker compose up -d
+          docker build -f docker/Dockerfile -t cronflow:latest .
 
-      - name: Health Check
+      - name: Import image to k3d
         run: |
-          echo "=== Health check ==="
+          k3d image import cronflow:latest -c ${{ env.CLUSTER_NAME }}
+
+      - name: Rollout restart
+        run: |
+          kubectl rollout restart deployment/cronflow -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/cronflow -n ${{ env.NAMESPACE }} --timeout=120s
+
+      - name: Health check
+        run: |
+          echo "=== Health check: CronFlow ==="
           for i in $(seq 1 12); do
             status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4001/ 2>/dev/null || echo "000")
             if [ "$status" != "000" ]; then
@@ -37,7 +47,55 @@ jobs:
           echo "FAILED: CronFlow did not respond"
           exit 1
 
-      - name: Cleanup
+  release-summary:
+    needs: deploy
+    if: always()
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build summary data
+        id: summary
         run: |
-          docker image prune -f
-          echo "=== Deploy complete ==="
+          COMMIT=$(git log --oneline -1 | cut -d' ' -f1)
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          RESULT="${{ needs.deploy.result }}"
+          echo "result=$RESULT" >> $GITHUB_OUTPUT
+
+      - name: Send Feishu notification
+        if: ${{ secrets.FEISHU_WEBHOOK_URL != '' }}
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
+        run: |
+          RESULT="${{ steps.summary.outputs.result }}"
+          COMMIT="${{ steps.summary.outputs.commit }}"
+
+          if [ "$RESULT" = "success" ]; then
+            COLOR="green"; STATUS_TEXT="✅ 部署成功"
+          else
+            COLOR="red"; STATUS_TEXT="❌ 部署失败"
+          fi
+
+          # 飞书签名验证
+          TIMESTAMP=$(date +%s)
+          SIGN=$(echo -ne "${TIMESTAMP}\n${FEISHU_WEBHOOK_SECRET}" | openssl dgst -sha256 -hmac "${FEISHU_WEBHOOK_SECRET}" | sed 's/^.* //')
+
+          jq -n \
+            --arg timestamp "$TIMESTAMP" \
+            --arg sign "$SIGN" \
+            --arg color "$COLOR" \
+            --arg commit "$COMMIT" \
+            --arg status "$STATUS_TEXT" \
+            '{
+              timestamp: $timestamp,
+              sign: $sign,
+              msg_type: "interactive",
+              card: {
+                config: { wide_screen_mode: true },
+                header: { title: { tag: "plain_text", content: "🚀 CronFlow 部署通知" }, template: $color },
+                elements: [
+                  { tag: "div", text: { tag: "lark_md", content: ("**提交**: " + $commit + "\n**结果**: " + $status) } }
+                ]
+              }
+            }' | curl -s -X POST -H "Content-Type: application/json" -d @- "$FEISHU_WEBHOOK_URL"
