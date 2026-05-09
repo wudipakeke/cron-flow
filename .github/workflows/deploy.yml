@@ -63,11 +63,12 @@ jobs:
           echo "result=$RESULT" >> $GITHUB_OUTPUT
 
       - name: Send Feishu notification
-        if: ${{ secrets.FEISHU_WEBHOOK_URL != '' }}
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
         run: |
+          [ -z "$FEISHU_WEBHOOK_URL" ] && echo "FEISHU_WEBHOOK_URL 未配置，跳过通知" && exit 0
+
           RESULT="${{ steps.summary.outputs.result }}"
           COMMIT="${{ steps.summary.outputs.commit }}"
 
