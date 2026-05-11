@@ -18,6 +18,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings 0",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -28,9 +29,9 @@
     "version:minor": "npm version minor --no-git-tag-version",
     "version:major": "npm version major --no-git-tag-version",
 
-    "release:patch": "pnpm lint && pnpm version:patch && git add package.json && git commit -m 'chore: bump version (patch)'",
-    "release:minor": "pnpm lint && pnpm version:minor && git add package.json && git commit -m 'chore: bump version (minor)'",
-    "release:major": "pnpm lint && pnpm version:major && git add package.json && git commit -m 'chore: bump version (major)'"
+    "release:patch": "pnpm lint:check && pnpm version:patch && git add package.json && git commit -m 'chore: bump version (patch)'",
+    "release:minor": "pnpm lint:check && pnpm version:minor && git add package.json && git commit -m 'chore: bump version (minor)'",
+    "release:major": "pnpm lint:check && pnpm version:major && git add package.json && git commit -m 'chore: bump version (major)'"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
