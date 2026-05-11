@@ -22,7 +22,15 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
+
+    "release:patch": "pnpm lint && pnpm version:patch && git add package.json && git commit -m 'chore: bump version (patch)'",
+    "release:minor": "pnpm lint && pnpm version:minor && git add package.json && git commit -m 'chore: bump version (minor)'",
+    "release:major": "pnpm lint && pnpm version:major && git add package.json && git commit -m 'chore: bump version (major)'"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
